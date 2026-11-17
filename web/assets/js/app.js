@@ -325,10 +325,14 @@
     });
 
     // 触摸：移动挡板 + 点击发射。滑动时不误判为点击
+    // 注意：只有真正在玩（出场页面已收起）时才拦截默认行为。
+    // 一旦在菜单页也 preventDefault，浏览器就不会再补发 click，
+    // 手机上「开始游戏 / 难度 / 球速 / 底部图标」会整片点不动。
     var touchStartX = 0, touchStartT = 0, touchMoved = false;
 
     app.addEventListener('touchstart', function (e) {
       if (!e.touches.length) return;
+      if (!window.GAME.state.playing) return;
       e.preventDefault();
       touchStartX = e.touches[0].clientX;
       touchStartT = Date.now();
@@ -338,6 +342,7 @@
 
     app.addEventListener('touchmove', function (e) {
       if (!e.touches.length) return;
+      if (!window.GAME.state.playing) return;
       e.preventDefault();
       var dx = Math.abs(e.touches[0].clientX - touchStartX);
       if (dx > 12) touchMoved = true;

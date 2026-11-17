@@ -1,4 +1,4 @@
-/* 3D 打砖块 · Windows 外壳（WebView2）
+/* 打砖块 · Windows 外壳（WebView2）
  * 只负责开窗口、把 web 目录挂成 https 源、加载页面。
  * 玩法与界面全部来自 web/index.html，这里不写任何游戏逻辑。
  *
@@ -38,7 +38,7 @@ static ComPtr<ICoreWebView2> g_view;
 static HWND g_hwnd = nullptr;
 
 static const wchar_t* kClassName = L"BrickBreaker3DWindow";
-static const wchar_t* kTitle     = L"3D 打砖块";
+static const wchar_t* kTitle     = L"打砖块";
 
 /* ---------- 路径 ---------- */
 
@@ -273,7 +273,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow)
     if (availW <= 0) availW = GetSystemMetrics(SM_CXSCREEN);
     if (availH <= 0) availH = GetSystemMetrics(SM_CYSCREEN);
 
-    // 3D 打砖块以横屏为主视觉，默认给一个略宽的窗口。
+    // 打砖块以横屏为主视觉，默认给一个略宽的窗口。
     // 页面内切换竖屏时，会通过 web message 请求外壳改成竖版尺寸。
     int cw = 980;
     int ch = 640;

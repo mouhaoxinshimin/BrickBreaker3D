@@ -5,16 +5,20 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.util.Log;
+import android.webkit.ConsoleMessage;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 /**
- * 3D 打砖块安卓外壳（WebView 套壳）。
+ * 打砖块安卓外壳（WebView 套壳）。
  * 玩法与界面全部来自 assets/web/index.html，这里只管开一个全屏 WebView。
  *
  * 屏幕方向：fullSensor，横过来就是横屏、竖起来就是竖屏。
@@ -26,6 +30,12 @@ import android.webkit.WebView;
 public class MainActivity extends Activity {
 
     private WebView web;
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        Log.d("BBWEB", "dispatchTouchEvent action=" + ev.getAction() + " x=" + ev.getX() + " y=" + ev.getY());
+        return super.dispatchTouchEvent(ev);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,8 +67,19 @@ public class MainActivity extends Activity {
         s.setTextZoom(100);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
-        web.setBackgroundColor(0xFF0E1428);
+        web.setBackgroundColor(0xFFFFF8F0);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+        // 页面里任何报错都转到 logcat，套壳出问题时 adb logcat -s BBWEB 就能看到
+        WebView.setWebContentsDebuggingEnabled(true);
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage cm) {
+                Log.d("BBWEB", cm.message() + "  @" + cm.sourceId() + ":" + cm.lineNumber());
+                return true;
+            }
+        });
+
         web.loadUrl("file:///android_asset/web/index.html");
 
         setContentView(web);

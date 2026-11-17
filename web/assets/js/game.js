@@ -310,8 +310,10 @@
     var bh = Math.min(2.2, budget / (rows * 1.2));
     var gap = Math.min(bw, bh) * 0.16;
 
-    // 从靠近顶墙的位置开始铺，别在顶部留一大片空白
-    var topY = H / 2 - 0.9;
+    // 顶部要给 HUD（分数 / 关卡行 / 生命）留出安全距离，否则宽屏下砖块首行会压住关卡文字。
+    // 同时又不能压太低，砖块底边与挡板之间必须留出球直径以上的反弹空间。
+    var topPad = orientation === 'portrait' ? 2.1 : 1.55;
+    var topY = H / 2 - topPad;
 
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols; c++) {

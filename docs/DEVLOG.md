@@ -1,7 +1,7 @@
 # 开发日志 · 打砖块（BrickBreaker3D）
 
 > 维护：某好心市民
-> 当前阶段：**原型改造阶段**（只改 HTML 原型，不做打包）
+> 当前阶段：**已打包、已开源**（v1.0.0 冻结）
 
 ---
 
@@ -65,20 +65,68 @@
 
 ---
 
+## 2026-11-17 · 打包与开源
+
+### 11. Windows 外壳
+- `win/main.cpp`：WebView2 宿主，虚拟主机 `brick3d.local` 映射到 `web/`
+- 窗口尺寸通道：页面 `postMessage('resize:宽x高')` → C++ `add_WebMessageReceived` 解析后 `ResizeClient` 居中改窗口（WebView 内部 `window.resizeTo` 无效，必须走这条）
+- `win/app.rc`（GBK/cp936）：图标 + VERSIONINFO，CompanyName「某好心市民」
+- `build.bat` → `BUILD_OK`，产物 `BrickBreaker3D.exe` 235 KB
+
+### 12. 安卓外壳
+- `MainActivity`：全屏 WebView + `fullSensor` + `configChanges`（旋转不重建 Activity，游戏进度不丢）
+- `themes.xml` 改浅色主题，消除启动黑边；`strings.xml` 应用名「打砖块」
+- `mipmap-*` 五密度图标已铺；桌面图标显示正常
+- `app/build.gradle` 的 `syncWeb` 任务在 `preBuild` 前自动把 `web/` 同步到 `assets/web`，安卓和网页永远同一份代码
+- 产物 `app-debug.apk` 319 KB
+
+### 13. 【重要】修掉安卓端点不动的真 bug：整页 `touchstart` 吞掉了 click
+`app.js` 里为了拖挡板，在 `#app` 上注册了 `touchstart` / `touchmove`，两个都无条件 `e.preventDefault()`。
+触屏上 `touchstart` 被 `preventDefault` 后，浏览器**不会再补发 click**，于是菜单里「开始游戏 / 难度 / 球速 / 底下五个图标」在手机上一个都点不动——
+桌面用鼠标走 `mousedown`，所以一直没暴露；`adb input tap` 注入的事件也确实进了 WebView（`deviceId=3 / source=0x1002` 都在），就是没有 click。
+修法：两个处理器都先判断 `if (!window.GAME.state.playing) return;`，只有真正在打的时候才拦截默认行为。
+修完在模拟器上点「开始游戏」进关卡、点屏幕发射球、打碎砖块、吃到 337 分，粒子也正常跑。
+
+### 14. 修掉 HUD 与砖块重叠（宽视口暴露出来的）
+安卓 1600×900 下场地按高度铺，`topY = H/2 - 0.9` 让砖块首行顶到顶部 HUD，「第 1/6 关 · 普通 · 球速 ×1.00」直接压在砖上。
+改 `topPad`：横屏 1.55 / 竖屏 2.1，砖块整体下移；同时确认砖块底边与挡板之间仍留出 >1.3 世界单位（球直径 0.9），不影响反弹空间。
+
+### 15. 归档与开源
+- `dist/BrickBreaker3D-win64.zip`（exe + web 全量，306 KB）
+- `dist/BrickBreaker3D-android.apk`（312 KB）
+- `README.md` / `LICENSE`（MIT）
+- 推送 GitHub 开源
+
+---
+
+## 验证记录（本机实测）
+
+| 项 | 结果 |
+|---|---|
+| Windows `build.bat` | `BUILD_OK`，exit 0 |
+| Windows 启动 + 切横竖屏 | 窗口 970×680 ↔ 480×820 变形正确，难度换算行同步重算 |
+| 安卓 `assembleDebug` | `BUILD SUCCESSFUL`，exit 0 |
+| 安卓安装 + 启动 | LDPlayer 1600×900 安装成功，界面无黑边 |
+| 安卓触摸 | 点开始 → 进关卡 → 点发射 → 打碎砖块计分 → 粒子动画，全通 |
+| 安卓桌面图标 | 奶油底 + 马卡龙砖 + 黄球 + 蓝挡板，显示正常 |
+
+**未能自动验证**：安卓真机旋转（`fullSensor` 只读传感器，`adb settings put user_rotation` 对它无效，模拟器上无法模拟旋转）。旋转重排逻辑与网页端共用同一套代码，网页端已通过「横屏/竖屏」按钮验证。
+
+---
+
 ## 已知遗留
 
-- `win/main.cpp` 窗口标题、`android/strings.xml` 应用名目前还是「3D 打磚塊」，未随平面化改
-- 安卓 `mipmap-*` 各密度图标尚未从 `assets/icon/` 铺进去
-- `win/app.rc` 未补（`app.ico` 已就绪，可直接引用）
-- 外壳与安卓壳一次都没编译过，**属于打包阶段任务**
-- 极窄屏（<360px）下底部按钮换行后的间距未调
+- 「画面饱满」的边界：横屏场地约占高 69%、竖屏约 76%，超宽/超窄视口下仍会有留白（底板已经做了圆角容器感）
+- 极窄屏（<360px）下底部按钮换行后的间距未精调
+- 排行榜未按难度分榜（当前是全局 Top10，榜内记录难度与球速）
+- 橙色砖 `#FFC98F` 填充与暖橙描边的对比偏弱，暂按现状保留
 
 ---
 
 ## 阶段规划
 
 1. ~~建骨架（三端目录）~~
-2. ~~原型视觉改造~~ ← 当前
-3. 原型确认 → 冻结视觉
-4. Windows 外壳 + 安卓壳编译、反复测试
-5. 终版归档、推送代码仓库
+2. ~~原型视觉改造~~
+3. ~~原型确认 → 冻结视觉~~
+4. ~~Windows 外壳 + 安卓壳编译、反复测试~~
+5. ~~终版归档、推送代码仓库~~
