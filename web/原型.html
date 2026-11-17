@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>3D 打砖块 · Neon Breaker</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#05060f; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  #app { position:relative; width:100%; height:100%; }
+  canvas { display:block; }
+
+  /* HUD */
+  #hud {
+    position:absolute; top:0; left:0; width:100%; padding:14px 18px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; z-index:10;
+  }
+  .stat {
+    background:rgba(15,18,40,0.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(120,160,255,0.25); border-radius:10px;
+    padding:8px 14px; color:#cfe0ff;
+  }
+  .stat .label { font-size:10px; letter-spacing:2px; opacity:.6; text-transform:uppercase; }
+  .stat .val { font-size:22px; font-weight:700; line-height:1.1;
+    background:linear-gradient(90deg,#5ee0ff,#b58cff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stat .val.small { font-size:15px; }
+  #title {
+    text-align:center; color:#8fa8ff; font-size:13px; letter-spacing:6px; font-weight:600;
+    text-shadow:0 0 12px rgba(120,150,255,.8);
+  }
+  #title small { display:block; font-size:9px; letter-spacing:2px; opacity:.5; margin-top:3px; }
+
+  /* 覆盖层 */
+  #overlay {
+    position:absolute; inset:0; z-index:20; display:flex; flex-direction:column;
+    justify-content:center; align-items:center; gap:18px;
+    background:radial-gradient(circle at 50% 40%, rgba(30,40,90,.55), rgba(5,6,15,.9));
+    backdrop-filter:blur(4px); text-align:center; padding:24px;
+  }
+  #overlay.hidden { display:none; }
+  #overlay h1 {
+    font-size:40px; letter-spacing:4px; color:#fff;
+    text-shadow:0 0 20px #5ee0ff,0 0 40px #5ee0ff;
+  }
+  #overlay h1.lose { text-shadow:0 0 20px #ff5e7a,0 0 40px #ff5e7a; }
+  #overlay p { color:#9fb0e0; font-size:14px; line-height:1.8; max-width:320px; }
+  #overlay .score-final { color:#5ee0ff; font-size:26px; font-weight:700; }
+  .btn {
+    pointer-events:auto; cursor:pointer; border:none;
+    padding:13px 40px; border-radius:30px; font-size:16px; font-weight:700; letter-spacing:2px;
+    color:#05060f; background:linear-gradient(90deg,#5ee0ff,#b58cff);
+    box-shadow:0 6px 24px rgba(94,224,255,.4); transition:transform .1s;
+  }
+  .btn:active { transform:scale(.94); }
+  .btn.ghost { background:transparent; color:#8fa8ff; border:1px solid rgba(120,160,255,.4); box-shadow:none; }
+
+  /* 开关区 */
+  #controls {
+    position:absolute; bottom:0; left:0; width:100%; padding:14px 18px;
+    display:flex; justify-content:center; gap:10px; z-index:10;
+  }
+  .toggle {
+    pointer-events:auto; cursor:pointer; user-select:none;
+    background:rgba(15,18,40,0.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(120,160,255,0.25); border-radius:20px;
+    padding:8px 16px; color:#7d92c8; font-size:12px; letter-spacing:1px;
+    transition:all .15s;
+  }
+  .toggle.on { color:#05060f; background:linear-gradient(90deg,#5ee0ff,#b58cff); border-color:transparent; font-weight:700; }
+
+  #hint {
+    position:absolute; bottom:64px; left:50%; transform:translateX(-50%);
+    color:#5a6da0; font-size:11px; letter-spacing:1px; z-index:10; text-align:center;
+    pointer-events:none; transition:opacity .5s;
+  }
+
+  /* 屏幕震动 */
+  @keyframes shake {
+    0%,100%{transform:translate(0,0)} 20%{transform:translate(-4px,3px)}
+    40%{transform:translate(4px,-2px)} 60%{transform:translate(-3px,-3px)} 80%{transform:translate(3px,2px)}
+  }
+  .shaking #app { animation:shake .18s; }
+  @keyframes flash { 0%{opacity:.5} 100%{opacity:0} }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:5; }
+  #flash.go { animation:flash .25s ease-out; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="stat"><div class="label">分数</div><div class="val" id="score">0</div></div>
+    <div id="title">NEON BREAKER<small id="levelTag">LEVEL 1</small></div>
+    <div class="stat" style="text-align:right">
+      <div class="label">生命</div><div class="val small" id="lives">❤️ ❤️ ❤️</div>
+      <div class="label" style="margin-top:4px">最高 <span id="best">0</span></div>
+    </div>
+  </div>
+
+  <div id="hint">拖动鼠标 / 手指移动挡板 · 点击发射球</div>
+  <div id="flash"></div>
+
+  <div id="controls">
+    <div class="toggle on" id="tgSound">🔊 音效</div>
+    <div class="toggle on" id="tgVibrate">📳 震动</div>
+    <div class="toggle" id="tgShake">💥 震屏</div>
+  </div>
+
+  <div id="overlay">
+    <h1 id="ovTitle">3D 打砖块</h1>
+    <p id="ovDesc">击碎所有砖块通关 · 挡板边缘命中可改变球的反弹角度<br>共 5 关，难度递增</p>
+    <div class="score-final" id="ovScore" style="display:none"></div>
+    <button class="btn" id="startBtn">开始游戏</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   3D 打砖块 Neon Breaker
+   模块：场景 / 音效合成 / 震动 / 粒子 / 物理 / 关卡 / 输入
+   ============================================================ */
+
+/* ---------- 音频引擎（Web Audio 合成，无外部文件） ---------- */
+const Audio = {
+  ctx: null, enabled: true,
+  init() { if(!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)(); },
+  // 基础音：type 波形, freq 频率, dur 时长, gain 音量
+  blip(freq=440, dur=0.08, type='square', gain=0.18) {
+    if(!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    // 音高轻微下滑，更"电"
+    osc.frequency.exponentialRampToValueAtTime(freq*0.92, t+dur);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+    osc.connect(g); g.connect(this.ctx.destination);
+    osc.start(t); osc.stop(t+dur);
+  },
+  // 砖块音：行越高音越高
+  brick(row) {
+    const scale = [523,587,659,698,784,880,988,1047]; // C 大调音阶
+    this.blip(scale[Math.min(row, scale.length-1)], 0.09, 'square', 0.16);
+  },
+  paddle()  { this.blip(196, 0.06, 'triangle', 0.22); },      // 挡板：低沉
+  wall()    { this.blip(330, 0.04, 'sine', 0.10); },           // 墙：轻
+  lose()    { // 掉落：下滑音
+    if(!this.enabled||!this.ctx) return;
+    const t=this.ctx.currentTime, osc=this.ctx.createOscillator(), g=this.ctx.createGain();
+    osc.type='sawtooth'; osc.frequency.setValueAtTime(400,t);
+    osc.frequency.exponentialRampToValueAtTime(60,t+0.5);
+    g.gain.setValueAtTime(0.25,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+    osc.connect(g); g.connect(this.ctx.destination); osc.start(t); osc.stop(t+0.5);
+  },
+  win() { // 通关：上行琶音
+    if(!this.enabled||!this.ctx) return;
+    [523,659,784,1047,1319].forEach((f,i)=> setTimeout(()=>this.blip(f,0.14,'triangle',0.2), i*90));
+  },
+  combo(n) { this.blip(400+n*80, 0.07, 'square', 0.18); } // 连击音高递增
+};
+
+/* ---------- 震动引擎 ---------- */
+const Haptic = {
+  enabled: true,
+  buzz(pattern) { if(this.enabled && navigator.vibrate) navigator.vibrate(pattern); },
+  light()  { this.buzz(15); },
+  medium() { this.buzz(30); },
+  heavy()  { this.buzz([40,30,40]); },
+  lose()   { this.buzz([80,50,80,50,120]); },
+};
+
+/* ---------- 屏幕反馈 ---------- */
+const FX = {
+  shakeEnabled: false,
+  shake() {
+    if(!this.shakeEnabled) return;
+    const app = document.getElementById('app');
+    app.classList.remove('shaking'); void app.offsetWidth; app.classList.add('shaking');
+    setTimeout(()=>app.classList.remove('shaking'),200);
+  },
+  flash() { const f=document.getElementById('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); },
+};
+
+/* ============================================================
+   Three.js 场景
+   ============================================================ */
+let scene, camera, renderer, clock;
+const W = 16, H = 22;           // 逻辑场地宽高（世界单位）
+let paddle, ball, balls=[];
+let bricks=[];
+let rayMouse = new THREE.Vector2();
+
+const state = {
+  score:0, lives:3, level:1, best: +(localStorage.getItem('nb_best')||0),
+  playing:false, launched:false, combo:0, comboTimer:0,
+};
+
+const settings = { sound:true, vibrate:true, shake:false };
+
+function initThree() {
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x05060f, 0.012);
+
+  camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 200);
+  camera.position.set(0, -6, 30);
+  camera.lookAt(0, 2, 0);
+
+  renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  document.getElementById('app').insertBefore(renderer.domElement, document.getElementById('hud'));
+  // canvas 放到最底层
+  renderer.domElement.style.position='absolute'; renderer.domElement.style.inset='0'; renderer.domElement.style.zIndex='1';
+
+  // 灯光
+  scene.add(new THREE.AmbientLight(0x4a5a9a, 0.9));
+  const p1 = new THREE.PointLight(0x5ee0ff, 1.2, 80); p1.position.set(-10,-10,20); scene.add(p1);
+  const p2 = new THREE.PointLight(0xb58cff, 1.0, 80); p2.position.set(10,-10,20); scene.add(p2);
+  const p3 = new THREE.PointLight(0xff5e7a, 0.6, 60); p3.position.set(0,15,15); scene.add(p3);
+
+  // 背景网格地面
+  const grid = new THREE.GridHelper(60, 40, 0x223066, 0x141c3a);
+  grid.position.set(0,0,-2); grid.rotation.x = 0; scene.add(grid);
+
+  // 边界墙（视觉）
+  const wallMat = new THREE.LineBasicMaterial({color:0x3a4d8a, transparent:true, opacity:0.6});
+  const pts = [
+    [-W/2,-H/2,0],[W/2,-H/2,0],[W/2,H/2,0],[-W/2,H/2,0],[-W/2,-H/2,0]
+  ].map(p=>new THREE.Vector3(...p));
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wallMat));
+
+  clock = new THREE.Clock();
+  window.addEventListener('resize', onResize);
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* ---------- 挡板 ---------- */
+function makePaddle() {
+  const geo = new THREE.BoxGeometry(4, 0.8, 1.2);
+  const mat = new THREE.MeshPhongMaterial({color:0x5ee0ff, emissive:0x1a4a6a, shininess:90});
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(0, -H/2+1.5, 0);
+  scene.add(m);
+  // 发光边
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({color:0xaef0ff}));
+  m.add(edges);
+  return m;
+}
+
+/* ---------- 球 ---------- */
+const ballColors = [0xffe066,0xff9f43,0x5ee0ff,0xb58cff,0xff5e7a];
+function makeBall(x,y) {
+  const geo = new THREE.SphereGeometry(0.45, 24, 24);
+  const mat = new THREE.MeshPhongMaterial({color:0xffe066, emissive:0x6a5a1a, shininess:100});
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x,y,0);
+  scene.add(m);
+  // 拖尾光晕
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.7,16,16),
+    new THREE.MeshBasicMaterial({color:0xffe066, transparent:true, opacity:0.18}));
+  m.add(halo);
+  return m;
+}
+
+/* ---------- 砖块 ---------- */
+const brickPalette = [0xff5e7a,0xff9f43,0xffe066,0x5ee0ff,0x6cffb0,0xb58cff];
+function buildLevel(lv) {
+  bricks.forEach(b=>scene.remove(b.mesh));
+  bricks = [];
+  const rows = Math.min(4+lv, 8);
+  const cols = 8;
+  const bw = (W-2)/cols, bh = 1.1, gap = 0.15;
+  const startY = H/2 - 3;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      // 关卡越高越可能有空洞
+      if(lv>2 && Math.random()<0.12) continue;
+      const hp = 1 + Math.floor((r/rows)*Math.min(lv,3)); // 上层更硬
+      const color = brickPalette[r % brickPalette.length];
+      const geo = new THREE.BoxGeometry(bw-gap, bh-gap, 1);
+      const mat = new THREE.MeshPhongMaterial({
+        color, emissive: new THREE.Color(color).multiplyScalar(0.35),
+        shininess:80, transparent:true, opacity: 0.55+hp*0.15
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(-W/2+1+bw*(c+0.5), startY - r*(bh+0.2), 0);
+      scene.add(mesh);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+        new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.4}));
+      mesh.add(edges);
+      bricks.push({mesh, hp, maxHp:hp, color, row:r, alive:true});
+    }
+  }
+}
+
+/* ============================================================
+   粒子系统（砖块碎裂）
+   ============================================================ */
+let particles = [];
+function spawnBurst(x,y,color) {
+  const n = 14;
+  for(let i=0;i<n;i++){
+    const geo = new THREE.BoxGeometry(0.2,0.2,0.2);
+    const mat = new THREE.MeshBasicMaterial({color});
+    const p = new THREE.Mesh(geo, mat);
+    p.position.set(x,y,0);
+    const a = Math.random()*Math.PI*2, sp = 0.15+Math.random()*0.3;
+    p.userData.vx = Math.cos(a)*sp; p.userData.vy = Math.sin(a)*sp;
+    p.userData.life = 1;
+    scene.add(p); particles.push(p);
+  }
+}
+function updateParticles() {
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.position.x += p.userData.vx; p.position.y += p.userData.vy;
+    p.userData.vy -= 0.012; p.userData.life -= 0.03;
+    p.rotation.x += 0.1; p.rotation.y += 0.1;
+    p.material.opacity = Math.max(0,p.userData.life); p.material.transparent=true;
+    p.scale.setScalar(Math.max(0.1,p.userData.life));
+    if(p.userData.life<=0){ scene.remove(p); particles.splice(i,1); }
+  }
+}
+
+/* ============================================================
+   游戏逻辑
+   ============================================================ */
+let vel = {x:0, y:0};
+const BALL_SPEED = 0.42;
+
+function resetBall() {
+  balls.forEach(b=>scene.remove(b)); balls=[];
+  state.launched = false;
+  const b = makeBall(0, paddle.position.y+1.5); balls.push(b);
+  vel = {x:0,y:0};
+}
+
+function launchBall() {
+  if(state.launched || !state.playing) return;
+  state.launched = true;
+  const ang = (Math.random()*0.6 - 0.3) + Math.PI/2; // 大致向上
+  const sp = BALL_SPEED * (1 + (state.level-1)*0.06);
+  vel = {x: Math.cos(ang)*sp, y: Math.abs(Math.sin(ang))*sp};
+  Audio.init(); Audio.blip(660,0.1,'triangle',0.2);
+}
+
+function startGame() {
+  state.score=0; state.lives=3; state.level=1; state.combo=0;
+  document.getElementById('overlay').classList.add('hidden');
+  if(!paddle){ paddle = makePaddle(); }
+  buildLevel(state.level);
+  resetBall();
+  state.playing = true;
+  updateHUD();
+  Audio.init();
+}
+
+function nextLevel() {
+  state.level++;
+  if(state.level>5){ youWin(); return; }
+  buildLevel(state.level);
+  resetBall();
+  document.getElementById('levelTag').textContent = 'LEVEL '+state.level;
+  Audio.win(); Haptic.medium();
+  state.launched=false;
+}
+
+function loseLife() {
+  state.lives--; Audio.lose(); Haptic.lose(); FX.flash();
+  updateHUD();
+  if(state.lives<=0){ gameOver(); }
+  else { resetBall(); }
+}
+
+function updateHUD() {
+  document.getElementById('score').textContent = state.score;
+  document.getElementById('lives').textContent =
+    state.lives>0 ? '❤️ '.repeat(state.lives).trim() : '—';
+  document.getElementById('best').textContent = state.best;
+}
+
+function addScore(pts, row) {
+  state.combo++;
+  state.comboTimer = 60;
+  const mult = 1 + Math.floor(state.combo/4);
+  state.score += pts*mult;
+  if(state.score>state.best){ state.best=state.score; localStorage.setItem('nb_best',state.best); }
+  Audio.combo(state.combo);
+  if(state.combo>0 && state.combo%5===0){ Haptic.medium(); FX.flash(); }
+  updateHUD();
+}
+
+function gameOver() {
+  state.playing=false;
+  showOverlay('GAME OVER', true, `得分 ${state.score} · 到达第 ${state.level} 关`);
+  Haptic.lose();
+}
+function youWin() {
+  state.playing=false;
+  showOverlay('🏆 通关!', false, `全 5 关清除 · 最终得分 ${state.score}`);
+  Audio.win(); Haptic.heavy(); FX.flash();
+}
+function showOverlay(title, lose, sub) {
+  const ov = document.getElementById('overlay');
+  const h = document.getElementById('ovTitle');
+  h.textContent = title; h.className = lose?'lose':'';
+  document.getElementById('ovDesc').style.display='none';
+  const sc = document.getElementById('ovScore');
+  sc.style.display='block'; sc.textContent = sub;
+  document.getElementById('startBtn').textContent = '再来一局';
+  ov.classList.remove('hidden');
+}
+
+/* ---------- 物理更新 ---------- */
+function updatePhysics() {
+  // 挡板跟随（平滑）
+  if(paddle){
+    paddle.position.x += (targetX - paddle.position.x)*0.25;
+    paddle.position.x = Math.max(-W/2+2.5, Math.min(W/2-2.5, paddle.position.x));
+  }
+
+  // 连击计时衰减
+  if(state.comboTimer>0){ state.comboTimer--; if(state.comboTimer===0) state.combo=0; }
+
+  if(!state.launched || !state.playing){
+    // 待发射：球贴在挡板上
+    if(balls[0]) balls[0].position.set(paddle.position.x, paddle.position.y+1.2, 0);
+    return;
+  }
+
+  const b = balls[0];
+  b.position.x += vel.x; b.position.y += vel.y;
+  b.rotation.x += vel.y; b.rotation.z -= vel.x;
+
+  // 左右墙
+  if(b.position.x > W/2-0.5){ b.position.x=W/2-0.5; vel.x=-Math.abs(vel.x); Audio.wall(); }
+  if(b.position.x < -W/2+0.5){ b.position.x=-W/2+0.5; vel.x=Math.abs(vel.x); Audio.wall(); }
+  // 顶墙
+  if(b.position.y > H/2-0.5){ b.position.y=H/2-0.5; vel.y=-Math.abs(vel.y); Audio.wall(); Haptic.light(); }
+  // 底部：掉球
+  if(b.position.y < -H/2-1){ loseLife(); return; }
+
+  // 挡板碰撞
+  if(vel.y<0 && Math.abs(b.position.x-paddle.position.x)<2.4 && Math.abs(b.position.y-paddle.position.y)<1.0){
+    const offset = (b.position.x - paddle.position.x)/2.0; // -1~1
+    const ang = offset * 1.05; // 边缘命中改变角度
+    const sp = Math.sqrt(vel.x*vel.x+vel.y*vel.y)*1.005; // 微加速
+    vel.x = Math.sin(ang)*sp;
+    vel.y = Math.abs(Math.cos(ang))*sp;
+    b.position.y = paddle.position.y+0.9;
+    Audio.paddle(); Haptic.light(); state.combo=0;
+  }
+
+  // 砖块碰撞
+  for(let i=bricks.length-1;i>=0;i--){
+    const br = bricks[i]; if(!br.alive) continue;
+    const bp = br.mesh.position;
+    if(Math.abs(b.position.x-bp.x)<1.0 && Math.abs(b.position.y-bp.y)<0.85){
+      br.hp--;
+      if(br.hp<=0){
+        br.alive=false;
+        spawnBurst(bp.x,bp.y,br.color);
+        scene.remove(br.mesh); bricks.splice(i,1);
+        Audio.brick(br.row); Haptic.light();
+        addScore(10*(br.maxHp), br.row);
+      } else {
+        // 受伤：变色变透明
+        br.mesh.material.opacity = 0.4+br.hp*0.18;
+        br.mesh.material.emissive = new THREE.Color(br.color).multiplyScalar(0.2+br.hp*0.15);
+        Audio.wall(); Haptic.light();
+        addScore(2, br.row);
+      }
+      // 反弹方向（判断从哪面撞）
+      const dx = b.position.x-bp.x, dy = b.position.y-bp.y;
+      if(Math.abs(dx)>Math.abs(dy)) vel.x=-vel.x; else vel.y=-vel.y;
+      FX.shake();
+      if(bricks.length===0){ setTimeout(nextLevel, 400); state.launched=false; }
+      break;
+    }
+  }
+}
+
+/* ============================================================
+   输入
+   ============================================================ */
+let targetX = 0;
+function onMove(clientX){
+  // 屏幕 x → 世界 x
+  const ndc = (clientX/window.innerWidth)*2-1;
+  const v = new THREE.Vector3(ndc,0,0.5).unproject(camera);
+  const t = (0 - camera.position.z)/(v.z-camera.position.z);
+  targetX = camera.position.x + v.x*t;
+}
+window.addEventListener('mousemove', e=> onMove(e.clientX));
+window.addEventListener('touchmove', e=>{ e.preventDefault(); onMove(e.touches[0].clientX); }, {passive:false});
+window.addEventListener('touchstart', e=>{ onMove(e.touches[0].clientX); }, {passive:false});
+window.addEventListener('mousedown', ()=>{ if(state.playing) launchBall(); });
+window.addEventListener('touchstart', ()=>{ if(state.playing) launchBall(); }, {passive:false});
+window.addEventListener('keydown', e=>{
+  if(e.code==='ArrowLeft') targetX-=1.5;
+  if(e.code==='ArrowRight') targetX+=1.5;
+  if(e.code==='Space'){ e.preventDefault(); if(state.playing) launchBall(); }
+});
+
+/* ---------- 按钮 ---------- */
+document.getElementById('startBtn').onclick = ()=>{ Audio.init(); startGame(); };
+function bindToggle(id, key, apply){
+  const el = document.getElementById(id);
+  el.onclick = ()=>{
+    settings[key]=!settings[key];
+    el.classList.toggle('on', settings[key]);
+    apply(settings[key]);
+  };
+}
+bindToggle('tgSound','sound', v=> Audio.enabled=v);
+bindToggle('tgVibrate','vibrate', v=> Haptic.enabled=v);
+bindToggle('tgShake','shake', v=> FX.shakeEnabled=v);
+
+/* ---------- 提示自动隐藏 ---------- */
+setTimeout(()=>{ const h=document.getElementById('hint'); if(h) h.style.opacity='0'; }, 5000);
+
+/* ============================================================
+   主循环
+   ============================================================ */
+function animate() {
+  requestAnimationFrame(animate);
+  updatePhysics();
+  updateParticles();
+  // 球的脉冲光
+  if(balls[0]){
+    const s = 1+Math.sin(performance.now()*0.008)*0.08;
+    balls[0].children[0].scale.setScalar(s);
+  }
+  renderer.render(scene, camera);
+}
+
+initThree();
+document.getElementById('best').textContent = state.best;
+animate();
+</script>
+</body>
+</html>

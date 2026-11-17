@@ -1,0 +1,427 @@
+/* ==========================================================
+   打砖块 · Neon Breaker
+   样式表 —— 视觉语言对齐 2048 / 猜拳对决：
+   马卡龙色 + 粗描边 + 实心偏移投影 + 奶油底
+   作者：某好心市民
+   注意：本文件不使用任何 @keyframes / animation。
+   实测某些 WebView2 环境会把被提升为合成层的 CSS animation 丢帧不绘制，
+   所有动态效果统一交给 JS 用 requestAnimationFrame 驱动。
+   ========================================================== */
+
+:root {
+  --ink: #4A3B32;
+  --ink2: #7A6A5E;
+  --cream: #FFF8F0;
+  --cream2: #FDF3E7;
+
+  --pink: #FF9EC4;
+  --pink-deep: #FF7AA8;
+  --mint: #7ED9A0;
+  --yellow: #FFE066;
+  --gold: #FFC93C;
+  --blue: #8FC9FF;
+  --blue-deep: #5FA8F0;
+  --lav: #C4A8FF;
+  --orange: #FFB067;
+
+  --edge: #4A3B32;
+  --shadow: #FFD1E2;
+  --shadow2: #D8C4B2;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+/* 淡蓝天 → 粉 → 奶油，和 2048 的舞台是同一套渐变 */
+body {
+  background: linear-gradient(180deg, #D6ECFF 0%, #FDEAF7 38%, #FFF6EC 68%, #FFF6EC 100%);
+}
+
+#app { position: relative; width: 100%; height: 100%; overflow: hidden; }
+
+canvas { display: block; }
+
+/* ---------------- 顶部 HUD ---------------- */
+
+#hud {
+  position: absolute; top: 0; left: 0; width: 100%;
+  padding: 14px 16px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 10px; pointer-events: none; z-index: 10;
+  transition: padding .2s;
+}
+
+/* 卡片：奶油底 + 深棕粗边 + 粉色实心偏移投影 */
+.stat {
+  position: relative;
+  background: var(--cream);
+  border: 3px solid var(--edge);
+  border-radius: 14px;
+  padding: 5px 12px 6px;
+  min-width: 78px;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+.stat .label {
+  font-size: 9px; letter-spacing: 1.5px; font-weight: 800;
+  color: var(--ink2); margin-bottom: 1px;
+}
+
+.stat .val {
+  font-size: 22px; font-weight: 900; line-height: 1.05;
+  color: var(--blue-deep);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .5px;
+}
+
+.stat .val.small { font-size: 14px; }
+
+.stat.right { text-align: right; }
+
+#titleBox { text-align: center; flex: 1 1 auto; padding-top: 3px; }
+
+#title {
+  font-size: 15px; letter-spacing: 3px; font-weight: 900; color: var(--ink);
+  text-shadow: 2px 2px 0 var(--shadow);
+  white-space: nowrap;
+}
+
+#levelTag {
+  display: block; font-size: 10px; letter-spacing: 1px; font-weight: 800;
+  color: var(--ink2); margin-top: 2px;
+}
+
+/* 生命用小圆点而不是 emoji，缩到小屏也不糊 */
+#lives { display: flex; gap: 4px; justify-content: flex-end; margin-top: 3px; }
+.life {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--pink-deep);
+  border: 2px solid var(--edge);
+}
+.life.off { background: #E6D8C9; border-color: var(--shadow2); }
+
+/* ---------------- 底部操作区 ---------------- */
+
+#controls {
+  position: absolute; bottom: 0; left: 0; width: 100%;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; justify-content: center; align-items: center;
+  gap: 8px; flex-wrap: wrap;
+  /* 压在覆盖层之上：菜单页也要能直接点排行和切横竖屏 */
+  z-index: 30;
+}
+
+.toggle, .iconBtn {
+  pointer-events: auto; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--cream);
+  border: 3px solid var(--edge);
+  border-radius: 16px;
+  padding: 6px 12px;
+  color: var(--ink2);
+  font-size: 12px; font-weight: 800; letter-spacing: .5px;
+  font-family: inherit;
+  box-shadow: 3px 3px 0 var(--shadow2);
+  transition: transform .1s, box-shadow .1s, background .12s;
+  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+
+/* 按钮图标：扁平线性 SVG，颜色跟着文字走，不用彩色 emoji */
+.toggle svg, .iconBtn svg {
+  width: 17px; height: 17px; flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toggle.on {
+  color: var(--ink);
+  background: var(--yellow);
+  box-shadow: 3px 3px 0 var(--gold);
+}
+
+.toggle:hover, .iconBtn:hover { background: #FFFDF9; }
+.toggle.on:hover { background: #FFE98A; }
+
+/* 按下时把投影吃掉，形成"压下去"的手感 */
+.toggle:active, .iconBtn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 transparent;
+}
+
+/* ---------------- 提示 ---------------- */
+
+#hint {
+  position: absolute; bottom: 66px; left: 50%; transform: translateX(-50%);
+  color: var(--ink2); font-size: 11px; font-weight: 700; letter-spacing: .5px; z-index: 10;
+  text-align: center; pointer-events: none;
+  background: rgba(255, 248, 240, .86);
+  border: 2px solid rgba(74, 59, 50, .18);
+  border-radius: 12px;
+  padding: 5px 12px;
+  transition: opacity .5s;
+  white-space: nowrap;
+}
+
+/* ---------------- 覆盖层 ---------------- */
+
+#overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  gap: 13px;
+  background: linear-gradient(180deg, #D6ECFF 0%, #FDEAF7 38%, #FFF6EC 68%, #FFF6EC 100%);
+  text-align: center; padding: 22px;
+  overflow-y: auto;
+}
+
+#overlay.hidden { display: none; }
+
+#overlay h1 {
+  font-size: 34px; letter-spacing: 2px; font-weight: 900; line-height: 1.2;
+  color: var(--ink);
+  text-shadow: 3px 3px 0 var(--shadow);
+}
+
+#overlay h1.lose { color: var(--pink-deep); text-shadow: 3px 3px 0 #FFD7E4; }
+
+#overlay p {
+  color: var(--ink2); font-size: 13px; font-weight: 600; line-height: 1.8;
+  max-width: 380px;
+}
+
+#ovScore {
+  color: var(--blue-deep); font-size: 25px; font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 2px 2px 0 #DCEBFA;
+}
+
+#ovRank {
+  color: var(--gold);
+  font-size: 13px; font-weight: 900;
+  background: var(--cream);
+  border: 2px solid var(--edge);
+  border-radius: 10px;
+  padding: 4px 12px;
+  box-shadow: 3px 3px 0 var(--shadow);
+}
+
+/* ---------------- 主按钮 ---------------- */
+
+.btn {
+  pointer-events: auto; cursor: pointer;
+  padding: 11px 38px; border-radius: 20px;
+  font-size: 16px; font-weight: 900; letter-spacing: 1.5px;
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--yellow);
+  border: 3px solid var(--edge);
+  box-shadow: 5px 5px 0 var(--gold);
+  transition: transform .1s, box-shadow .1s, background .12s;
+}
+
+.btn:hover { background: #FFE98A; }
+.btn:active { transform: translate(5px, 5px); box-shadow: 0 0 0 transparent; }
+
+.btn.ghost {
+  background: var(--cream);
+  color: var(--ink2);
+  box-shadow: 4px 4px 0 var(--shadow2);
+  padding: 9px 24px; font-size: 13px;
+}
+.btn.ghost:hover { background: #FFFDF9; }
+
+/* ---------------- 难度 / 速度选择器 ---------------- */
+
+.picker {
+  display: flex; flex-direction: column; gap: 9px;
+  width: 100%; max-width: 400px;
+}
+
+.pickerRow { display: flex; align-items: center; gap: 8px; }
+
+.pickerLabel {
+  font-size: 10px; letter-spacing: 1.5px; font-weight: 800; color: var(--ink2);
+  width: 40px; flex: 0 0 auto; text-align: left;
+}
+
+.seg {
+  display: flex; flex: 1 1 auto;
+  background: var(--cream);
+  border: 3px solid var(--edge);
+  border-radius: 15px;
+  padding: 3px; gap: 3px;
+  box-shadow: 3px 3px 0 var(--shadow2);
+}
+
+.segBtn {
+  flex: 1 1 0; cursor: pointer;
+  border: none; background: transparent;
+  color: var(--ink2); font-size: 12px; font-weight: 800;
+  font-family: inherit;
+  padding: 6px 4px; border-radius: 10px;
+  transition: background .12s, color .12s;
+  white-space: nowrap;
+}
+
+.segBtn.active {
+  color: var(--ink);
+  background: var(--yellow);
+  box-shadow: inset 0 -3px 0 var(--gold);
+}
+
+.segBtn:not(.active):hover { background: #FFFDF9; }
+
+/* 难度说明 */
+/* 选完难度球速后立刻给出的实测数值，方便直接对比档位差异 */
+#diffStat {
+  color: var(--ink); font-size: 11.5px; font-weight: 800;
+  letter-spacing: .3px; min-height: 17px; line-height: 1.6;
+  padding: 4px 8px; border-radius: 8px;
+  background: rgba(255, 224, 102, .38);
+  border: 1.5px solid rgba(74, 59, 50, .12);
+}
+
+#diffDesc {
+  color: var(--ink2); font-size: 11px; font-weight: 700;
+  min-height: 16px; line-height: 1.6;
+}
+
+/* ---------------- 排行榜 ---------------- */
+
+#board {
+  position: absolute; inset: 0; z-index: 25;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 13px;
+  background: linear-gradient(180deg, #D6ECFF 0%, #FDEAF7 38%, #FFF6EC 68%, #FFF6EC 100%);
+  padding: 22px 22px 76px;
+  overflow-y: auto;
+}
+
+#board.hidden { display: none; }
+
+.boardFoot {
+  color: var(--ink2);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  opacity: .75;
+}
+
+#board h2 {
+  font-size: 21px; letter-spacing: 2px; font-weight: 900; color: var(--ink);
+  text-shadow: 2px 2px 0 var(--shadow);
+}
+
+.boardList {
+  width: 100%; max-width: 400px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+.boardRow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center; gap: 9px;
+  background: var(--cream);
+  border: 3px solid var(--edge);
+  border-radius: 12px;
+  padding: 7px 11px;
+  font-size: 12.5px;
+  box-shadow: 3px 3px 0 var(--shadow2);
+}
+
+.boardRow.top {
+  background: #FFFCE8;
+  box-shadow: 3px 3px 0 var(--gold);
+}
+
+.boardRank {
+  color: var(--ink2); font-size: 11px; font-weight: 900; text-align: center;
+}
+.boardRow.top .boardRank { color: var(--gold); }
+
+.boardName {
+  color: var(--ink); font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+}
+
+.boardBadge {
+  font-size: 9px; font-weight: 800; letter-spacing: .3px;
+  padding: 1px 6px; border-radius: 6px;
+  border: 2px solid rgba(74, 59, 50, .22);
+  color: var(--ink2); flex: 0 0 auto;
+}
+
+.boardScore {
+  color: var(--blue-deep); font-weight: 900;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+
+.boardEmpty {
+  color: var(--ink2); font-size: 12px; font-weight: 700;
+  text-align: center; padding: 26px 0;
+}
+
+/* 名字输入 */
+#nameWrap {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; max-width: 320px;
+}
+
+#nameInput {
+  flex: 1 1 auto;
+  background: var(--cream);
+  border: 3px solid var(--edge);
+  border-radius: 14px;
+  padding: 9px 14px;
+  color: var(--ink); font-size: 13px; font-weight: 700;
+  outline: none; font-family: inherit;
+  box-shadow: 3px 3px 0 var(--shadow2);
+  transition: box-shadow .12s, border-color .12s;
+}
+
+#nameInput:focus {
+  border-color: var(--blue-deep);
+  box-shadow: 3px 3px 0 var(--blue);
+}
+
+#nameInput::placeholder { color: #B7A79A; font-weight: 600; }
+
+/* ---------------- 横竖屏 ---------------- */
+
+/* 竖屏时收紧垂直排布，避免顶部到棋盘之间空一大片 */
+.portrait #hud { padding: 10px 12px; }
+.portrait #title { font-size: 13px; letter-spacing: 2px; }
+.portrait .stat { min-width: 68px; padding: 4px 9px 5px; }
+.portrait .stat .val { font-size: 19px; }
+.portrait #hint { bottom: 60px; font-size: 10px; padding: 4px 10px; }
+
+/* ---------------- 场景闪光层 ---------------- */
+
+#flash {
+  position: absolute; inset: 0; background: #FFFFFF;
+  opacity: 0; pointer-events: none; z-index: 5;
+}
+
+/* ---------------- 极窄时 ---------------- */
+
+@media (max-height: 400px) {
+  #hint { display: none; }
+  #controls { padding-bottom: 6px; gap: 6px; }
+  .toggle, .iconBtn { padding: 4px 9px; font-size: 10.5px; }
+  #hud { padding: 8px 12px; }
+  .stat .val { font-size: 18px; }
+}

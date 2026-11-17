@@ -1,0 +1,18 @@
+# 构建产物与本地环境
+win/*.obj
+win/*.res
+win/*.exe
+win/*.log
+android/**/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/web/
+dist/
+docs/screenshots/_*.png
+docs/screenshots/_*.jpg
+
+# 临时与系统文件
+*.tmp
+*.log
+Thumbs.db
+.DS_Store

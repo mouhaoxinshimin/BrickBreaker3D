@@ -1,0 +1,43 @@
+// 3D 打砖块安卓套壳 · 应用模块
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mhxsm.brick3d'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.mhxsm.brick3d"
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+/*
+ * 每次构建前把项目里的 web/ 目录整体同步到 assets/web，
+ * 保证安卓端和 PC 端永远跑同一份页面代码，不用手工复制。
+ */
+tasks.register('syncWeb', Copy) {
+    from(new File(rootProject.projectDir.parentFile, 'web')) {
+        exclude '**/.gitkeep'
+        exclude 'test/**'
+    }
+    into layout.projectDirectory.dir('src/main/assets/web').asFile
+}
+
+preBuild.dependsOn syncWeb

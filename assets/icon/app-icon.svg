@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>打砖块 · 应用图标</title>
+
+  <!-- 底板：奶油白 + 暖灰褐投影，和游戏内场地同一套 -->
+  <rect x="54" y="66" width="916" height="916" rx="168" fill="#EADFD2"/>
+  <rect x="42" y="42" width="916" height="916" rx="168" fill="#FFF8F0"/>
+
+  <!-- 砖块投影层 -->
+  <g fill="#EADFD2">
+    <rect x="130" y="212" width="240" height="110" rx="26"/>
+    <rect x="404" y="212" width="240" height="110" rx="26"/>
+    <rect x="678" y="212" width="240" height="110" rx="26"/>
+    <rect x="130" y="352" width="240" height="110" rx="26"/>
+    <rect x="404" y="352" width="240" height="110" rx="26"/>
+    <rect x="678" y="352" width="240" height="110" rx="26"/>
+    <rect x="130" y="492" width="240" height="110" rx="26"/>
+    <rect x="404" y="492" width="240" height="110" rx="26"/>
+    <rect x="678" y="492" width="240" height="110" rx="26"/>
+  </g>
+
+  <!-- 砖块本体：浅马卡龙填充 + 暖橙描边 -->
+  <g stroke="#E8913C" stroke-width="9" stroke-linejoin="round">
+    <rect x="118" y="200" width="240" height="110" rx="26" fill="#FFB6D2"/>
+    <rect x="392" y="200" width="240" height="110" rx="26" fill="#FFE879"/>
+    <rect x="666" y="200" width="240" height="110" rx="26" fill="#A9D8FF"/>
+    <rect x="118" y="340" width="240" height="110" rx="26" fill="#A5E6BC"/>
+    <rect x="392" y="340" width="240" height="110" rx="26" fill="#FFC98F"/>
+    <rect x="666" y="340" width="240" height="110" rx="26" fill="#CFBEFF"/>
+    <rect x="118" y="480" width="240" height="110" rx="26" fill="#FFE879"/>
+    <rect x="392" y="480" width="240" height="110" rx="26" fill="#FFB6D2"/>
+    <rect x="666" y="480" width="240" height="110" rx="26" fill="#FFC98F"/>
+  </g>
+
+  <!-- 球：黄身橙边，左上一点白高光 -->
+  <circle cx="524" cy="702" r="60" fill="#EADFD2"/>
+  <circle cx="512" cy="690" r="60" fill="#FFE066" stroke="#E8913C" stroke-width="9"/>
+  <circle cx="492" cy="670" r="15" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- 挡板：蓝胶囊 + 暖橙描边 -->
+  <rect x="268" y="792" width="520" height="112" rx="56" fill="#EADFD2"/>
+  <rect x="256" y="780" width="520" height="112" rx="56" fill="#5FA8F0" stroke="#E8913C" stroke-width="9"/>
+</svg>
